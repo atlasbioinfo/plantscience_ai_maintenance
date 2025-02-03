@@ -5,8 +5,8 @@ import { ref, onMounted, onUnmounted } from 'vue'
 const osTheme = useOsTheme()
 
 // Maintenance time settings
-const maintenanceStart = new Date('2025-02-02T20:00:00')
-const maintenanceEnd = new Date('2025-02-03T06:00:00')
+const maintenanceStart = new Date('2025-02-03T16:30:00')
+const maintenanceEnd = new Date('2025-02-03T17:00:00')
 
 const remainingTime = ref('')
 const countdown = ref(null)
