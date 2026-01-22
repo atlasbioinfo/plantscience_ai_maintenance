@@ -1,13 +1,101 @@
 <script setup>
-import { NResult, NSpace, NTag, NConfigProvider, useOsTheme, darkTheme, NTime } from 'naive-ui'
-import { ref, onMounted, onUnmounted } from 'vue'
+import { NResult, NSpace, NTag, NConfigProvider, useOsTheme, darkTheme, NButton } from 'naive-ui'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 const osTheme = useOsTheme()
 
-// Maintenance time settings
-const maintenanceStart = new Date('2025-02-03T16:30:00')
-const maintenanceEnd = new Date('2025-02-03T17:00:00')
+// ==================== i18n ====================
+const messages = {
+  en: {
+    title: 'Plantscience.ai System Maintenance',
+    description: 'is currently updating its AI models.',
+    maintenanceStart: 'Maintenance Start:',
+    expectedCompletion: 'Expected Completion:',
+    ukTime: 'UK Time',
+    timeRemaining: 'Time Remaining',
+    completed: 'Maintenance completed',
+    checkBackLater: 'Please check back later',
+    patience: 'We appreciate your patience while we improve our services'
+  },
+  zh: {
+    title: 'Plantscience.ai 系统维护',
+    description: '正在更新 AI 模型。',
+    maintenanceStart: '维护开始时间：',
+    expectedCompletion: '预计完成时间：',
+    ukTime: '英国时间',
+    timeRemaining: '剩余时间',
+    completed: '维护已完成',
+    checkBackLater: '请稍后再访问',
+    patience: '感谢您的耐心等待，我们正在努力提升服务质量'
+  }
+}
 
+// Detect browser language
+const getBrowserLang = () => {
+  const lang = navigator.language || navigator.userLanguage
+  return lang.startsWith('zh') ? 'zh' : 'en'
+}
+
+const currentLang = ref(getBrowserLang())
+
+const t = computed(() => messages[currentLang.value])
+
+const toggleLang = () => {
+  currentLang.value = currentLang.value === 'en' ? 'zh' : 'en'
+}
+
+const langButtonText = computed(() => currentLang.value === 'en' ? '中文' : 'English')
+
+// ==================== Time Settings ====================
+// Maintenance time settings (UK Time - GMT/UTC+0)
+// Using ISO format with timezone offset for UK winter time (GMT)
+const maintenanceStart = new Date('2026-01-22T22:30:00Z') // UK Time
+const maintenanceEnd = new Date('2026-01-23T06:00:00Z') // UK Time
+
+// Format time for UK timezone
+const formatUKTime = (date) => {
+  return date.toLocaleString('en-GB', {
+    timeZone: 'Europe/London',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
+}
+
+// Format time for user's local timezone
+const formatLocalTime = (date) => {
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
+}
+
+// Get user's timezone name
+const userTimezone = computed(() => {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone
+})
+
+// Check if user is in UK timezone
+const isUKTimezone = computed(() => {
+  return userTimezone.value === 'Europe/London'
+})
+
+// Formatted times
+const startTimeUK = computed(() => formatUKTime(maintenanceStart))
+const endTimeUK = computed(() => formatUKTime(maintenanceEnd))
+const startTimeLocal = computed(() => formatLocalTime(maintenanceStart))
+const endTimeLocal = computed(() => formatLocalTime(maintenanceEnd))
+
+// ==================== Countdown ====================
 const remainingTime = ref('')
 const countdown = ref(null)
 
@@ -16,7 +104,7 @@ const updateRemainingTime = () => {
   const diff = maintenanceEnd - now
 
   if (diff <= 0) {
-    remainingTime.value = 'Maintenance completed'
+    remainingTime.value = t.value.completed
     if (countdown.value) {
       clearInterval(countdown.value)
     }
@@ -45,44 +133,62 @@ onUnmounted(() => {
 <template>
   <NConfigProvider :theme="osTheme === 'dark' ? darkTheme : null">
     <div class="maintenance-container">
+      <!-- Language Switch Button -->
+      <NButton
+        class="lang-switch"
+        size="small"
+        quaternary
+        @click="toggleLang"
+      >
+        {{ langButtonText }}
+      </NButton>
+
       <NSpace justify="center" align="center" :size="48" class="content-wrapper">
-        <img 
-          src="./assets/mantainance_plantscience_ai.png" 
-          alt="Maintenance" 
+        <img
+          src="./assets/mantainance_plantscience_ai.png"
+          alt="Maintenance"
           class="maintenance-image animate-float"
         />
         <NResult
           status="warning"
-          title="Plantscience.ai System Maintenance"
+          :title="t.title"
           description=""
           class="result-card animate-fade-in"
         >
           <template #description>
             <div class="description-text">
-              is currently updating its AI models.
+              {{ t.description }}
             </div>
           </template>
           <template #footer>
             <NSpace vertical align="center" :size="24">
               <div class="maintenance-time animate-fade-up">
-                <p>Maintenance Start: <NTime :time="maintenanceStart" format="yyyy-MM-dd HH:mm:ss" /></p>
-                <p>Expected Completion: <NTime :time="maintenanceEnd" format="yyyy-MM-dd HH:mm:ss" /></p>
+                <div class="time-section">
+                  <p class="time-label">{{ t.maintenanceStart }}</p>
+                  <p class="time-value">{{ startTimeUK }} <span class="timezone-tag">({{ t.ukTime }})</span></p>
+                  <p v-if="!isUKTimezone" class="time-local">{{ startTimeLocal }} <span class="timezone-tag">({{ userTimezone }})</span></p>
+                </div>
+                <div class="time-section">
+                  <p class="time-label">{{ t.expectedCompletion }}</p>
+                  <p class="time-value">{{ endTimeUK }} <span class="timezone-tag">({{ t.ukTime }})</span></p>
+                  <p v-if="!isUKTimezone" class="time-local">{{ endTimeLocal }} <span class="timezone-tag">({{ userTimezone }})</span></p>
+                </div>
                 <div class="countdown-wrapper">
-                  <p class="countdown-label">Time Remaining</p>
+                  <p class="countdown-label">{{ t.timeRemaining }}</p>
                   <div class="countdown-display">{{ remainingTime }}</div>
                 </div>
               </div>
-              <NTag 
+              <NTag
                 :bordered="false"
                 type="info"
                 size="large"
                 round
                 class="waiting-tag animate-fade-up"
               >
-                Please check back later
+                {{ t.checkBackLater }}
               </NTag>
               <p class="patience-text animate-fade-up">
-                We appreciate your patience while we improve our services
+                {{ t.patience }}
               </p>
             </NSpace>
           </template>
@@ -124,6 +230,15 @@ onUnmounted(() => {
   opacity: 0;
 }
 
+/* Language switch button */
+.lang-switch {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 100;
+  font-weight: 500;
+}
+
 /* Enhanced existing styles */
 .maintenance-container {
   min-height: 100vh;
@@ -133,6 +248,7 @@ onUnmounted(() => {
   padding: 20px;
   background: var(--n-color);
   transition: background-color 0.3s ease;
+  position: relative;
 }
 
 .content-wrapper {
@@ -280,9 +396,44 @@ onUnmounted(() => {
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.time-section {
+  margin-bottom: 12px;
+}
+
+.time-label {
+  font-weight: 600;
+  color: var(--n-text-color-1);
+  margin-bottom: 4px;
+}
+
+.time-value {
+  font-size: 15px;
+  color: var(--n-text-color-2);
+}
+
+.time-local {
+  font-size: 14px;
+  color: var(--n-primary-color);
+  margin-top: 2px;
+}
+
+.timezone-tag {
+  font-size: 12px;
+  color: var(--n-text-color-3);
+  font-weight: normal;
+}
+
 @media (max-width: 768px) {
   .countdown-display {
     font-size: 24px;
+  }
+
+  .time-value, .time-local {
+    font-size: 13px;
+  }
+
+  .timezone-tag {
+    font-size: 11px;
   }
 }
 </style>
